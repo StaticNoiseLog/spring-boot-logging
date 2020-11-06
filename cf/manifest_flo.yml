@@ -1,0 +1,14 @@
+applications:
+- name: flo-exploder
+  memory: 1G
+  disk_quota: 1G
+  instances: 2
+  env:
+    JBP_CONFIG_OPEN_JDK_JRE: '{ "jre": { version: 11.+ } }'
+    SPRING_PROFILES_ACTIVE: json-logs, prod
+  routes:
+  - route: flo-exploder.scapp.swisscom.com
+  - route: flo-exploder.scapp-corp.swisscom.com
+  health-check-type: process
+  services:
+    - digital-billing-logdrain

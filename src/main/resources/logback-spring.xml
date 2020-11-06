@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="1 seconds">
+    <appender name="ConsoleRoot"
+              class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <Pattern>
+                ConsoleRoot: %black(%d{ISO8601}) %highlight(%-5level) [%blue(%t)] %yellow(%C{1.}): %msg%n%throwable
+            </Pattern>
+        </layout>
+    </appender>
+    <appender name="Console1"
+              class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <Pattern>
+                Console1: %black(%d{ISO8601}) %highlight(%-5level) [%blue(%t)] %yellow(%C{1.}): %msg%n%throwable
+            </Pattern>
+        </layout>
+    </appender>
+    <appender name="Console2"
+              class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <Pattern>
+                Console2: %black(%d{ISO8601}) %highlight(%-5level) [%blue(%t)] %yellow(%C{1.}): %msg%n%throwable
+            </Pattern>
+        </layout>
+    </appender>
+    <appender name="Console3"
+              class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <Pattern>
+                Console3: %black(%d{ISO8601}) %highlight(%-5level) [%blue(%t)] %yellow(%C{1.}): %msg%n%throwable
+            </Pattern>
+        </layout>
+    </appender>
+
+    <logger name="one" level="TRACE" additivity="true">
+        <appender-ref ref="Console1"/>
+    </logger>
+
+    <logger name="one.two" level="TRACE" additivity="false">
+        <appender-ref ref="Console2"/>
+    </logger>
+
+    <logger name="one.two.three" level="TRACE" additivity="true">
+        <appender-ref ref="Console3"/>
+    </logger>
+
+    <!-- logging as JSON -->
+    <appender name="json" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+    </appender>
+    <!-- if profile "json-logs" OR profile "prod" is active-->
+    <springProfile name="json-logs, prod">
+        <root level="INFO">
+            <appender-ref ref="json"/>
+        </root>
+        <logger name="bk.example.logging" level="TRACE" additivity="false">
+            <appender-ref ref="json"/>
+        </logger>
+    </springProfile>
+    <!-- if (profile "json-logs" is NOT active) OR (profile "classic-logs" is active) -->
+    <springProfile name="!json-logs, classic-logs">
+        <root level="INFO">
+            <appender-ref ref="ConsoleRoot"/>
+        </root>
+        <logger name="bk.example.logging" level="TRACE" additivity="false">
+            <appender-ref ref="Console1"/>
+        </logger>
+    </springProfile>
+
+</configuration>
