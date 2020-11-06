@@ -29,7 +29,7 @@ will be used.
 ## Live Changes of logback-spring.xml
 With the `scan` and `scanPeriod` attribute logback will detect logging configuration changes on the fly.
 Note that you must modify the *deployed logback-spring.xml file* for this to work. In this case that would
-..\logging\build\resources\main\logback-spring.xml.
+be ..\logging\build\resources\main\logback-spring.xml.
 
     <configuration scan="true" scanPeriod="1 seconds">
 
