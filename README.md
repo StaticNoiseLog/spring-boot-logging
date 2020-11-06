@@ -41,8 +41,8 @@ FILE_LOG_PATTERN). In a small experiment in 2020 the output was not convincing, 
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
     <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
     <include resource="org/springframework/boot/logging/logback/file-appender.xml"/>
-    
- # Cloud Foundry
+
+# Cloud Foundry
  
 One of the tenets of the twelve-factor manifesto:
 
@@ -81,3 +81,39 @@ The basic steps are:
 
 See [this project's README](https://github.com/StaticNoiseLog/logstash-cloud-foundry-config/) for a full explanation
 and example on how to get logs into the ELK stack on Cloud Foundry.
+
+# Configuration for JSON Logging
+When running in Cloud Foundry, you may have to log in JSON format (no real solution for multiline problem with Logstash).
+This is an example of a `logback-spring.xml` configuration that does normal Spring Boot logging with Spring profile
+`localhost`. For the Spring profiles `development`, `test`, `integration` and `production` an appender is used that
+converts the log output to JSON.
+
+Note that Spring's `base.xml` is only included if the profile is `localhost` because `base.xml` brings along a root
+logger that already has two appenders configured. These cannot be "removed" in our `logback-spring.xml` and cause
+output lines to be duplicated, once in JSON, once to stdout and once to a logfile. But running in the Cloud we only want
+the JSON output.
+
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <springProfile name="localhost">
+        <!-- bring in Spring Boot default root logger for standard logging -->
+        <include resource="org/springframework/boot/logging/logback/base.xml"/>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="development, test, integration, production">
+        <!-- log JSON, and ONLY that (don't bring in Spring Boot root logger) -->
+        <appender name="json" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="json"/>
+        </root>
+    </springProfile>
+
+</configuration>
+```
