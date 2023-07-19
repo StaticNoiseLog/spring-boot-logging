@@ -23,8 +23,9 @@ Logging levels can be specified in different ways:
 2. In application.properties/yml: `logging.level.com.baeldung=TRACE`
 3. In logback-spring.xml: `<logger name="bk.example.logging" level="trace" ...`
 
-If you define conflicting log levels for a package, using the different options, the lowest level
-will be used.
+If you define conflicting log levels for the same package, using the different options, the lowest level
+will be used. Remember that the root logger level (defined in logback-spring.xml for example) will be
+overridden for packages that have another level setting (say in application.properties).
 
 ## Live Changes of logback-spring.xml
 With the `scan` and `scanPeriod` attribute logback will detect logging configuration changes on the fly.
