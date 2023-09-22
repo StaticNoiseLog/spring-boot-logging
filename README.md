@@ -22,7 +22,8 @@
 
 ## Spring Boot Default Logging
 
-By default, Spring Boot uses **logback** for logging and logs everything to the console. Nowhere else, no file.
+By default, Spring Boot uses **[logback](https://logback.qos.ch/)** for logging and logs everything to the console.
+Nowhere else, no file.
 
 ## Java Code
 
@@ -72,15 +73,21 @@ For the following requirements you need `logback-spring.xml`:
    XML.
 4. **logback debugging:** `<configuration debug="true">`
 
-**Once you have introduced a "logback-spring.xml" you must configure a logger for all Spring profiles in that file, or
-you will get no logging at all.** The default Spring Boot logging is gone.
+**Once you have introduced a "logback-spring.xml" you must use it to configure a logger for all Spring profiles, or you
+will not get any logging at all.** The default Spring Boot logging is gone.
 
 ## Recommendations ###
 
 - Avoid `logback-spring.xml` if possible.
 - If you need `logback-spring.xml`, keep it minimal and put it in `../src/main/resources`.
-- Omit log level specifications like `<root level="INFO">` in `logback-spring.xml` to illustrate that this is not the
-  place where you want to control log levels. The default will be DEBUG and you always override it
+- Specify log levels in `application.properties` and do not set them in `logback-spring.xml`. Managing log levels in a
+  single place makes it easier to understand what the current settings are. If you omit the level
+  in `logback-spring.xml` (i.e. just `<root>` instead of `<root level="INFO">`) the default will be DEBUG. The log
+  levels in `application.properties` override `logback-spring.xml`. You should ensure that you specify the correct log
+  levels in `application.properties`. However, if you happen to overlook something, the default DEBUG setting will grab
+  your attention.
+- Omit log level specifications like `<root level="INFO">` in `logback-spring.xml` and declare the log levels
+  in `application.properties` instead. Omitting the level The default will be DEBUG and you always override it
   in `application.properties`, which will be your central source to consult when you want to know or change log levels.
 - Remember that once you have a `logback-spring.xml` file, it must contain loggers for all situations. The Spring Boot
   default is not available anymore.
@@ -98,7 +105,8 @@ logging.level.root=INFO
 ```
 
 To configure the JSON appender for the "cloud" Spring profile we need `logback-spring.xml` and because we have
-introduced this file, we must also configure logging for all non-cloud environments. Logging levels are not set here.
+introduced this file, we must also configure logging for all non-cloud environments. Logging levels are not set here
+because we want to keep them centralized in `application.properties`.
 
 ```
 <?xml version="1.0" encoding="UTF-8"?>
