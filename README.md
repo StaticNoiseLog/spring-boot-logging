@@ -1,76 +1,281 @@
-# Trying Out
-<http://localhost:8080/greeting>
+# Local Endpoints
+
+## Actuator Info for Loggers
+
+<http://localhost:8080/actuator/loggers>
+
+## Log Output
+
+<http://localhost:8080/greeting?name=Alf>
 
 <http://localhost:8080/hierarchy>
 
-# More on Logging with Spring Boot
+<http://localhost:8080/loglevels>
 
-## Basics
-Spring Boot uses Logback for logging by default, and logs everything to the console.
+## Provoke Unhandled Exception/Error
 
-## Levels
-TRACE, DEBUG, INFO, WARN, ERROR, ALL or OFF
+<http://localhost:8080/npe>
 
-The special case-insensitive value INHERITED, or its synonym NULL, will force the
-level of the logger to be inherited from higher up in the hierarchy.
+<http://localhost:8080/explode>
 
-If you don’t explicitly define a log level, the logger will inherit the level of its
-closest ancestor.
+# Logging with Spring Boot
 
-## Setting Log Levels
+## Spring Boot Default Logging
+
+By default, Spring Boot uses **logback** for logging and logs everything to the console. Nowhere else, no file.
+
+## Java Code
+
+You use the SLF4J API (that's what logback implements).
+
+    Logger logger = LoggerFactory.getLogger(getClass());
+    logger.error("Things failed miserably.", noRenderOutputException);
+
+SLF4J comes with a [MessageFormatter](https://www.slf4j.org/api/org/slf4j/helpers/MessageFormatter.html) that uses its
+own syntax but claims to be fast: *The formatting conventions are different from those of MessageFormat which ships with
+the Java platform. This is justified by the fact that SLF4J's implementation is 10 times faster than that of
+MessageFormat. This local performance difference is both measurable and significant in the larger context of the
+complete logging processing chain.*
+
+The SLF4J MessageFormatter is used when you work with the so-called *formatting anchor* `{}`:
+
+     logger.info("Hello {}, the temperature is {} degrees Celsius.", name, 24);
+
+## application.properties vs. logback-spring.xml
+
+With Spring, avoid logback-specific configuration if possible. If you do need it (for JSON logging, special formatting,
+etc.), use this filename and location: `..\src\main\resources\logback-spring.xml`
+
+Prefer the Spring configuration mechanisms for logging (`application.properties`, etc.). This provides a level of
+abstraction that isolates you from logback features that do not work with Spring Boot (like `scan="true"`), and it
+leaves the door open for switching to another logging library in the future.
+
+### application.properties for Logging Levels
+
+Configure logging levels in `application.properties` (note the prefix `logging.level.` before the logger name):
+
+```
+logging.level.root=INFO
+logging.level.com.example=DEBUG
+```
+
+Use profile-specific properties files like `application-dev.properties` or `application-cloud.properties` if you need
+different logging levels depending on the active Spring profiles.
+
+### logback-spring.xml for Appenders, Patterns, etc.
+
+For the following requirements you need `logback-spring.xml`:
+
+1. **Appenders:** Configuring logback appenders, such as `ConsoleAppender`, `FileAppender`.
+2. **Log Formatting:** If you need custom log message formatting or layouts (`encoder`, `Pattern`).
+3. **Logger Configuration:** Defining specific loggers, their names, and their associated appenders is generally done in
+   XML.
+4. **logback debugging:** `<configuration debug="true">`
+
+**Once you have introduced a "logback-spring.xml" you must configure a logger for all Spring profiles in that file, or
+you will get no logging at all.** The default Spring Boot logging is gone.
+
+## Recommendations ###
+
+- Avoid `logback-spring.xml` if possible.
+- If you need `logback-spring.xml`, keep it minimal and put it in `../src/main/resources`.
+- Omit log level specifications like `<root level="INFO">` in `logback-spring.xml` to illustrate that this is not the
+  place where you want to control log levels. The default will be DEBUG and you always override it
+  in `application.properties`, which will be your central source to consult when you want to know or change log levels.
+- Remember that once you have a `logback-spring.xml` file, it must contain loggers for all situations. The Spring Boot
+  default is not available anymore.
+- Do not use the "scan" feature of logback (see section "logback-spring.xml vs. logback.xml" below).
+
+### Configuration Example for a Cloud Microservice
+
+The following configuration is for a microservice that is deployed to a cloud. With the Spring profile "cloud" it logs
+in JSON format. For any other Spring profile it logs to the console in standard format.
+
+Logging levels are set in `application.properties`:
+
+```
+logging.level.root=INFO
+```
+
+To configure the JSON appender for the "cloud" Spring profile we need `logback-spring.xml` and because we have
+introduced this file, we must also configure logging for all non-cloud environments. Logging levels are not set here.
+
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <springProfile name="!cloud">
+        <!-- log to console only for all profiles that are not "cloud", i.e. "localhost" for example -->
+        <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+        <root>
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="cloud">
+        <!-- log JSON, and ONLY that (don't bring in Spring Boot root logger) -->
+        <appender name="json" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+        </appender>
+        <root>
+            <appender-ref ref="json"/>
+        </root>
+    </springProfile>
+
+</configuration>
+```
+
+## Logging Levels
+
+These are the levels that are used for logging and configuration:
+
+    TRACE < DEBUG < INFO <  WARN < ERROR
+
+In addition, the value `OFF` can be used in the logging configuration. All six values mentioned work
+in `logback-spring.xml` as well as in `application.properties`, i.e. they are "Spring compatible".
+
+These are some behaviors I have observed with logback and Spring Boot 3:
+
+- If you do not explicitly define a log level, the logger will inherit the level of its closest ancestor.
+- In a logger hierarchy only the log level of the logger used in the log statement is relevant. The levels of ancestors
+  have no influence. Say you have logger "one" with ancestor "ROOT". Logger "one" has level DEBUG (and
+  additivity `true` so that the message travels up the hierarchy) and "ROOT" has level ERROR. The log statement
+  is `loggerOne.warn("you were warned");`. You might expect that only "one" logs the line because "ROOT" has level
+  ERROR. But filtering occurs at "one" exclusively and therefore *both* loggers, "one " *and* "ROOT", print the WARN log
+  line.
+- If you mistype and specify an invalid log level then DEBUG will be used, *not* the ancestor's level.
+
+### Setting Logging Levels
+
+Loggers are identified by matching their name. If you instantiate loggers in Java
+with `LoggerFactory.getLogger(getClass())` you can conveniently use the Java package names for setting log levels in a
+hierarchical way. You can also target a specific logger by including the class name after the package, as
+in `logging.level.bk.example.logging.GreetingController=INFO`.
+
 Logging levels can be specified in different ways:
-1. On the command line: `-Dlogging.level.com.baeldung=TRACE`
-2. In application.properties/yml: `logging.level.com.baeldung=TRACE`
-3. In logback-spring.xml: `<logger name="bk.example.logging" level="trace" ...`
 
-If you define conflicting log levels for the same package, using the different options, the lowest level
-will be used. Remember that the root logger level (defined in logback-spring.xml for example) will be
-overridden for packages that have another level setting (say in application.properties).
+1. In **logback-spring.xml**: `<logger name="bk.example.logging" level="TRACE" ...` (must not have `logging.level.`
+   prefix!)
+2. In **application.properties/yml**: `logging.level.bk.example.logging=TRACE` (`logging.level.` prefix required!)
+3. On the **command line**: `-Dlogging.level.bk.example.logging=TRACE` (`logging.level.` prefix required!)
 
-## Live Changes of logback-spring.xml
-With the `scan` and `scanPeriod` attribute logback will detect logging configuration changes on the fly.
-Note that you must modify the *deployed logback-spring.xml file* for this to work. In this case that would
-be ..\logging\build\resources\main\logback-spring.xml.
+**Observation:** *The log level specified in application.properties overrides the level set in logback-spring.xml!*
 
-    <configuration scan="true" scanPeriod="1 seconds">
+## logback-spring.xml vs. logback.xml
+
+The configuration file `../src/main/resources/logback-spring.xml` is loaded by Spring itself, which understands
+the `springProfile` XML property.
+
+If the file is called `logback.xml` then logback code will load the file and Spring profiles won't work! You will see
+this WARN during startup (if you have logback debug enabled with `<configuration debug="true">`):
+
+    19:47:42,885 |-WARN in ch.qos.logback.core.model.processor.ImplicitModelHandler - Ignoring unknown property [springProfile] in [ch.qos.logback.classic.LoggerContext]
+
+**To ensure a clean configuration, it is important to let Spring be the only component responsible for loading the
+logback configuration.** This involves using the name `logback-spring.xml` and avoiding the logback "scan" feature,
+which is not supported by Spring.
+
+    <configuration scan="true" scanPeriod="1 seconds">       Don't use scan with Spring Boot!
+
+The above "scan" settings cause logback to detect changes in the configuration file while the application is running.
+However, this feature is not supported by Spring Boot. Even if you use the Spring filename "logback-spring.xml", the
+configuration is loaded by logback itself when the scanPeriod is over, not Spring. Given that you may also be employing
+"springProfile" in your configuration (a keyword not supported by logback), the logging configuration will not reload
+correctly, leading to irregular behavior for the running application.
+
+# Logback Appender
+
+## Pattern
+
+The elements you can use in patterns are documented
+on [the logback website](https://logback.qos.ch/manual/layouts.html).
+If you want to know what `C%` does, you have to look for `C{` (which is short for `class{}`).
+
+### Example
+
+```
+<appender name="Console1" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+        <Pattern>
+            %red(Console1:) %black(%d{ISO8601}) %highlight(%-5level) [%blue(%t)] %yellow(%C{1}): %msg%n%throwable
+        </Pattern>
+    </encoder>
+</appender>
+```
+
+Breakdown of the log pattern in the example above:
+
+- `%red(Console1:)`: The text "Console1:" in red.
+- `%black(%d{ISO8601})`: Date and time (in ISO8601 format) to be displayed in black.
+- `%highlight(%-5level)`: Log level with highlighting, where the level text is left-aligned (`%-5level`) and the actual
+  color would depend on your logback configuration. It's typically used to colorize the log level text based on
+  severity (e.g., ERROR might be in red).
+- `[%blue(%t)]`: The thread name (`%t`) in blue. Thread names help identify which threads are producing log entries in a
+  multi-threaded application.
+- `%yellow(%C{1})`: The class name (`%C{1}`) in yellow. The number `1` specifies the maximum length of the parts of the
+  full class name (with the package). But as the rightmost part is never abbreviated, you get single letters for the
+  packages and the unabbreviated class name when you use `%C{1}` (for example `b.e.l.GreetingController`). If the logger
+  was created with `LoggerFactory.getLogger(getClass())` the class name may happen to be the same as the logger name.
+  But `%C` is *not* the logger name, it is indeed the name of the class that printed the log line.
+- `%msg`: This is where the log message (`%msg`) is displayed.
+- `%n`: This is a newline.
+- `%throwable`: This outputs any exception stack trace if present.
 
 ## Preconfigured Appenders
-Spring ships two preconfigured appenders, one is named CONSOLE. But to use them you
-have to include them in logback-spring.xml, and also defaults.xml (for CONSOLE_LOG_PATTERN and
-FILE_LOG_PATTERN). In a small experiment in 2020 the output was not convincing, though.
 
-    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
-    <include resource="org/springframework/boot/logging/logback/file-appender.xml"/>
+Spring ships two preconfigured appenders, CONSOLE and FILE, that can be imported with `include`.
+
+Log only to the console:
+
+    <springProfile name="localhost">
+        <include resource="org/springframework/boot/logging/logback/defaults.xml" />
+        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+Log only to a file:
+
+    <springProfile name="localhost">
+        <property name="LOG_FILE" value="./log/myapp.log"/>
+        <include resource="org/springframework/boot/logging/logback/defaults.xml" />
+        <include resource="org/springframework/boot/logging/logback/file-appender.xml"/>
+        <root level="INFO">
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+If you really want both appenders for logging to the console and a file simultaneously, you can include "base.xml".
 
 # Cloud Foundry
- 
+
 One of the tenets of the twelve-factor manifesto:
 
 *A twelve-factor app never concerns itself with routing or storage of its output
- stream. It should not attempt to write to or manage logfiles. Instead, each
- running process writes its event stream, unbuffered, to stdout. During local
- development, the developer will view this stream in the foreground of their
- terminal to observe the app’s behavior.*
+stream. It should not attempt to write to or manage logfiles. Instead, each
+running process writes its event stream, unbuffered, to stdout. During local
+development, the developer will view this stream in the foreground of their
+terminal to observe the app’s behavior.*
 
 ## Loggregator
 
-Cloud Foundry’s Loggregator component captures logs from the various components
-and applications running on the platform, aggregates these logs, and gives users
-full access to the data either via CLI or the management console.
+Cloud Foundry’s Loggregator component captures logs from the various components and applications running on the
+platform, aggregates these logs, and gives users full access to the data either via CLI or the management console.
 
 Tail:
 
     cf logs YOUR-APP-NAME
 
-Display all of the lines in the Loggregator buffer:
+Display all the lines in the Loggregator buffer:
 
     cf logs YOUR-APP-NAME --recent
 
 ## Saving Logs Externally
-Cloud Foundry can be configured to export the log data to an external logging
-solution, typically the ELK stack (Elasticsearch, Logstash, Kibana). In a
-production environment you want to do this because the regular log data is only
+
+Cloud Foundry can be configured to export the log data to an external logging solution, typically the ELK stack (
+Elasticsearch, Logstash, Kibana). In a production environment you want to do this because the regular log data is only
 stored for a short time.
 
 The basic steps are:
@@ -84,37 +289,8 @@ See [this project's README](https://github.com/StaticNoiseLog/logstash-cloud-fou
 and example on how to get logs into the ELK stack on Cloud Foundry.
 
 # Configuration for JSON Logging
-When running in Cloud Foundry, you may have to log in JSON format (no real solution for multiline problem with Logstash).
-This is an example of a `logback-spring.xml` configuration that does normal Spring Boot logging with Spring profile
-`localhost`. For the Spring profiles `development`, `test`, `integration` and `production` an appender is used that
-converts the log output to JSON.
 
-Note that Spring's `base.xml` is only included if the profile is `localhost` because `base.xml` brings along a root
-logger that already has two appenders configured. These cannot be "removed" in our `logback-spring.xml` and cause
-output lines to be duplicated, once in JSON, once to stdout and once to a logfile. But running in the Cloud we only want
-the JSON output.
+When running in Cloud Foundry, you may have to log in JSON format (no real solution for multiline problem with
+Logstash).
 
-```
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-
-    <springProfile name="localhost">
-        <!-- bring in Spring Boot default root logger for standard logging -->
-        <include resource="org/springframework/boot/logging/logback/base.xml"/>
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-        </root>
-    </springProfile>
-
-    <springProfile name="development, test, integration, production">
-        <!-- log JSON, and ONLY that (don't bring in Spring Boot root logger) -->
-        <appender name="json" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
-        </appender>
-        <root level="INFO">
-            <appender-ref ref="json"/>
-        </root>
-    </springProfile>
-
-</configuration>
-```
+See the section "Configuration Example for a Cloud Microservice" above for more details.
