@@ -1,3 +1,30 @@
+- [Local Endpoints](#local-endpoints)
+  * [Actuator Info for Loggers](#actuator-info-for-loggers)
+  * [Log Output](#log-output)
+  * [Provoke Unhandled Exception/Error](#provoke-unhandled-exception-error)
+- [Logging with Spring Boot](#logging-with-spring-boot)
+  * [Spring Boot Default Logging](#spring-boot-default-logging)
+  * [Java Code](#java-code)
+  * [application.properties vs. logback-spring.xml](#applicationproperties-vs-logback-springxml)
+    + [application.properties for Logging Levels](#applicationproperties-for-logging-levels)
+    + [logback-spring.xml for Appenders, Patterns, etc.](#logback-springxml-for-appenders--patterns--etc)
+  * [Recommendations](#recommendations)
+    + [Configuration Example for a Cloud Microservice](#configuration-example-for-a-cloud-microservice)
+  * [Logging Levels](#logging-levels)
+    + [Setting Logging Levels](#setting-logging-levels)
+  * [logback-spring.xml vs. logback.xml](#logback-springxml-vs-logbackxml)
+- [Logback Appender](#logback-appender)
+  * [Pattern](#pattern)
+    + [Example](#example)
+  * [Preconfigured Appenders](#preconfigured-appenders)
+- [Cloud Foundry](#cloud-foundry)
+  * [Loggregator](#loggregator)
+  * [Saving Logs Externally](#saving-logs-externally)
+  * [Configuration for JSON Logging](#configuration-for-json-logging)
+
+<small><i><a href='http://ecotrust-canada.github.io/markdown-toc/'>Table of contents generated with markdown-toc</a></i></small>
+
+
 # Local Endpoints
 
 ## Actuator Info for Loggers
@@ -86,9 +113,6 @@ will not get any logging at all.** The default Spring Boot logging is gone.
   levels in `application.properties` override `logback-spring.xml`. You should ensure that you specify the correct log
   levels in `application.properties`. However, if you happen to overlook something, the default DEBUG setting will grab
   your attention.
-- Omit log level specifications like `<root level="INFO">` in `logback-spring.xml` and declare the log levels
-  in `application.properties` instead. Omitting the level The default will be DEBUG and you always override it
-  in `application.properties`, which will be your central source to consult when you want to know or change log levels.
 - Remember that once you have a `logback-spring.xml` file, it must contain loggers for all situations. The Spring Boot
   default is not available anymore.
 - Do not use the "scan" feature of logback (see section "logback-spring.xml vs. logback.xml" below).
@@ -190,7 +214,7 @@ The above "scan" settings cause logback to detect changes in the configuration f
 However, this feature is not supported by Spring Boot. Even if you use the Spring filename "logback-spring.xml", the
 configuration is loaded by logback itself when the scanPeriod is over, not Spring. Given that you may also be employing
 "springProfile" in your configuration (a keyword not supported by logback), the logging configuration will not reload
-correctly, leading to irregular behavior for the running application.
+correctly, leading to irregular behavior of the running application.
 
 # Logback Appender
 
@@ -296,7 +320,7 @@ The basic steps are:
 See [this project's README](https://github.com/StaticNoiseLog/logstash-cloud-foundry-config/) for a full explanation
 and example on how to get logs into the ELK stack on Cloud Foundry.
 
-# Configuration for JSON Logging
+## Configuration for JSON Logging
 
 When running in Cloud Foundry, you may have to log in JSON format (no real solution for multiline problem with
 Logstash).
