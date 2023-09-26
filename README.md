@@ -127,6 +127,9 @@ Logging levels are set in `application.properties`:
 ```
 logging.level.root=INFO
 ```
+For JSON logging you have to add this dependency to build.gradle.kts:
+
+    runtimeOnly("net.logstash.logback:logstash-logback-encoder:7.4")
 
 To configure the JSON appender for the "cloud" Spring profile we need `logback-spring.xml` and because we have
 introduced this file, we must also configure logging for all non-cloud environments. Logging levels are not set here
